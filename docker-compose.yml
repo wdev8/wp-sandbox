@@ -1,0 +1,67 @@
+version: '3'
+
+services:
+  wp_db:
+    image: mysql:8.0.33
+    container_name: wp_db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - MYSQL_DATABASE=wp_sandbox
+      - MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+    volumes: 
+      - dbdata:/var/lib/mysql
+    command: '--default-authentication-plugin=mysql_native_password'
+    networks:
+      - app-network
+      
+  wp_sandbox:
+    depends_on: 
+      - wp_db
+    image: wordpress:6.3-fpm-alpine
+    container_name: wp_sandbox
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - WORDPRESS_DB_HOST=wp_db:3306
+      - WORDPRESS_DB_USER=$MYSQL_USER
+      - WORDPRESS_DB_PASSWORD=$MYSQL_PASSWORD
+      - WORDPRESS_DB_NAME=wp_sandbox
+    volumes:
+      - ./wordpress:/var/www/html
+    networks:
+      - app-network
+  
+  wp_webserver:
+    depends_on:
+      - wp_sandbox
+    image: nginx:1.25.2-alpine
+    container_name: wp_webserver
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./nginx-conf:/etc/nginx/conf.d
+      # - certbot-etc:/etc/letsencrypt
+    networks:
+      - app-network
+      
+  # certbot:
+  #   depends_on:
+  #     - webserver
+  #   image: certbot/certbot
+  #   container_name: certbot
+  #   volumes:
+  #     - certbot-etc:/etc/letsencrypt
+  #     - ./wordpress:/var/www/html
+  #   command: certonly --webroot --webroot-path=/var/www/html --email jb@webdev8.com --agree-tos --no-eff-email --staging -d your_domain -d www.your_domain
+  
+volumes:
+  # certbot-etc:
+  dbdata:
+
+networks:
+  app-network:
+    driver: bridge
+    
